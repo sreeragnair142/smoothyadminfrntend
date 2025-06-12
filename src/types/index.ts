@@ -15,6 +15,14 @@ export interface Category {
   createdAt: string;
 }
 
+export interface Product {
+  id: string;
+  name: string;
+  description: string;
+  smoothieCount: number;
+  createdAt: string;
+}
+
 export interface Banner {
   id: string;
   title: string;
@@ -57,4 +65,57 @@ export interface DashboardStats {
   lowStockIngredients: number;
   activeBanners: number;
   publishedBlogs: number;
+}
+
+export interface Banner {
+  id: string;
+  title: string;
+  description?: string;
+  image: string;
+  mobileImage?: string;
+  linkUrl?: string;
+  ingredients: { id: string; name: string }[];
+  bannerType: 'home_slider' | 'inner_page';
+  page?: string;
+  displayOrder: number;
+  isActive: boolean;
+  startDate: string;
+  endDate: string;
+  bannerImages?: { id: string; url: string; type: 'home-slider' | 'inner-page' }[];
+}
+
+export interface ProductPage {
+  name: string;
+  url: string;
+}
+
+export interface Category {
+  id: string;
+  _id?: string;
+  name: string;
+  description?: string;
+  image?: string;
+  isActive?: boolean;
+  smoothieCount?: number;
+  productPages?: ProductPage[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Banner {
+  id: string;
+  title: string;
+  description?: string;
+  image: string;
+  mobileImage?: string;
+  bannerImages: { url: string; type: 'home-slider' | 'inner-page' }[];
+  linkUrl?: string;
+  ingredients: string[];
+  bannerType: 'home_slider' | 'inner_page';
+  page?: string;
+  displayOrder: number;
+  isActive: boolean;
+  startDate: string | Date;
+  endDate: string | Date;
+  createdAt?: string | Date;
 }

@@ -1,26 +1,27 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { 
-  Home, 
-  Users, 
-  Tag, 
-  Image, 
-  FileText, 
-  Coffee,
-  LogOut
+import {
+   Home,
+   Users,
+   Tag,
+   Image,
+   FileText,
+   Coffee,
+   LogOut,
+   Package // Added Package icon for Product
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 const Sidebar: React.FC = () => {
   const { logout, user } = useAuth();
-  
+   
   const navigation = [
     { name: 'Dashboard', icon: Home, href: '/dashboard' },
-    { name: 'Users', icon: Users, href: '/users' },
+    // { name: 'Users', icon: Users, href: '/users' },
     { name: 'Categories', icon: Tag, href: '/categories' },
+    { name: 'Product', icon: Package, href: '/Products' }, // Changed from Tag to Package
     { name: 'Banners', icon: Image, href: '/banners' },
-    { name: 'Blogs', icon: FileText, href: '/blogs' },
-    { name: 'Ingredients', icon: Coffee, href: '/ingredients' },
+    // { name: 'Ingredients', icon: Coffee, href: '/ingredients' },
   ];
 
   return (
@@ -31,7 +32,7 @@ const Sidebar: React.FC = () => {
           <h1 className="text-xl font-bold">Smoothie Admin</h1>
         </div>
       </div>
-      
+           
       <div className="p-4 border-b border-green-700">
         <div className="flex flex-col items-center">
           <div className="h-12 w-12 rounded-full bg-green-600 flex items-center justify-center text-white text-xl font-semibold">
@@ -43,7 +44,7 @@ const Sidebar: React.FC = () => {
           </div>
         </div>
       </div>
-      
+           
       <div className="flex-1 overflow-y-auto py-4">
         <nav className="px-2 space-y-1">
           {navigation.map((item) => (
@@ -64,7 +65,7 @@ const Sidebar: React.FC = () => {
           ))}
         </nav>
       </div>
-      
+           
       <div className="p-4 border-t border-green-700">
         <button
           onClick={logout}

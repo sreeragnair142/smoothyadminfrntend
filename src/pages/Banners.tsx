@@ -1,54 +1,79 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Edit, Trash2, Eye, EyeOff, Calendar, Plus, Minus } from 'lucide-react';
+import axios from 'axios';
 import DataTable from '../components/ui/DataTable';
 import Modal from '../components/ui/Modal';
 import { Banner } from '../types';
-import { banners as initialBanners } from '../data/mockData';
 
-interface BannerImage {
-  id: string;
-  url: string;
-  type: 'home-slider' | 'inner-page';
-}
-
-interface Ingredient {
-  id: string;
-  name: string;
-}
+// Define API_URL with a fallback to localhost for development
+const API_URL = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:5000/api';
+const IMAGE_BASE_URL = import.meta.env.VITE_REACT_APP_IMAGE_BASE_URL || 'http://localhost:5000';
 
 const Banners: React.FC = () => {
-  const [banners, setBanners] = useState<Banner[]>(initialBanners);
+  const [banners, setBanners] = useState<Banner[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
   const [formData, setFormData] = useState({
     id: '',
     title: '',
     description: '',
-    imageUrl: '',
+    image: '',
     linkUrl: '',
     isActive: true,
     startDate: '',
     endDate: '',
-    bannerImages: [] as BannerImage[],
-    ingredients: [] as Ingredient[],
+    bannerType: 'home_slider' as 'home_slider' | 'inner_page',
+    page: 'homepage',
+    displayOrder: 0,
+    bannerImages: [] as { id: string; file: File | null; url: string; type: 'home-slider' | 'inner-page' }[],
+    ingredients: [] as string[],
+    imageFile: null as File | null,
+    mobileImageFile: null as File | null,
+    mobileImage: '',
   });
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [bannerToDelete, setBannerToDelete] = useState<Banner | null>(null);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [previewBanner, setPreviewBanner] = useState<Banner | null>(null);
-  const [newImageUrl, setNewImageUrl] = useState('');
-  const [newImageType, setNewImageType] = useState<'home-slider' | 'inner-page'>('home-slider');
+  const [newBannerImageFile, setNewBannerImageFile] = useState<File | null>(null);
+  const [newBannerImageType, setNewBannerImageType] = useState<'home-slider' | 'inner-page'>('home-slider');
   const [newIngredientName, setNewIngredientName] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchBanners();
+  }, []);
+
+  const fetchBanners = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/banners/admin`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('userToken')}`,
+        },
+      });
+      if (response.data && Array.isArray(response.data)) {
+        setBanners(response.data);
+      } else {
+        setErrorMessage('Invalid banner data received.');
+      }
+    } catch (error) {
+      console.error('Error fetching banners:', error);
+      setErrorMessage('Failed to fetch banners. Please try again.');
+    }
+  };
 
   const columns = [
-    { 
-      header: 'Banner', 
+    {
+      header: 'Banner',
       accessor: (banner: Banner) => (
         <div className="flex items-center">
-          <img 
-            src={banner.imageUrl} 
-            alt={banner.title} 
+          <img
+            src={`${IMAGE_BASE_URL}${banner.image}`}
+            alt={banner.title}
             className="h-10 w-16 object-cover rounded"
+            onError={(e) => {
+              e.currentTarget.src = 'https://via.placeholder.com/64x40?text=Invalid+URL';
+            }}
           />
           <div className="ml-3">
             <div className="font-medium text-gray-900">{banner.title}</div>
@@ -60,23 +85,26 @@ const Banners: React.FC = () => {
         </div>
       ),
     },
-    { 
-      header: 'Status', 
+    {
+      header: 'Status',
       accessor: (banner: Banner) => (
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-          banner.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-        }`}>
+        <span
+          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+            banner.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+          }`}
+        >
           {banner.isActive ? 'Active' : 'Inactive'}
         </span>
       ),
     },
-    { 
-      header: 'Duration', 
+    {
+      header: 'Duration',
       accessor: (banner: Banner) => (
         <div className="text-sm">
           <div className="flex items-center text-gray-500">
             <Calendar className="h-4 w-4 mr-1" />
-            {new Date(banner.startDate).toLocaleDateString()} - {new Date(banner.endDate).toLocaleDateString()}
+            {new Date(banner.startDate).toLocaleDateString()} -{' '}
+            {new Date(banner.endDate).toLocaleDateString()}
           </div>
         </div>
       ),
@@ -88,19 +116,25 @@ const Banners: React.FC = () => {
     const today = new Date();
     const nextMonth = new Date();
     nextMonth.setMonth(today.getMonth() + 1);
-    
     setFormData({
       id: '',
       title: '',
       description: '',
-      imageUrl: '',
+      image: '',
       linkUrl: '',
       isActive: true,
       startDate: today.toISOString().split('T')[0],
       endDate: nextMonth.toISOString().split('T')[0],
+      bannerType: 'home_slider',
+      page: 'homepage',
+      displayOrder: 0,
       bannerImages: [],
       ingredients: [],
+      imageFile: null,
+      mobileImageFile: null,
+      mobileImage: '',
     });
+    setErrorMessage(null);
     setModalOpen(true);
   };
 
@@ -109,15 +143,27 @@ const Banners: React.FC = () => {
     setFormData({
       id: banner.id,
       title: banner.title,
-      description: banner.description,
-      imageUrl: banner.imageUrl,
-      linkUrl: banner.linkUrl,
+      description: banner.description || '',
+      image: banner.image,
+      linkUrl: banner.linkUrl || '',
       isActive: banner.isActive,
       startDate: new Date(banner.startDate).toISOString().split('T')[0],
       endDate: new Date(banner.endDate).toISOString().split('T')[0],
-      bannerImages: banner.bannerImages || [],
+      bannerType: banner.bannerType || 'home_slider',
+      page: banner.page || 'homepage',
+      displayOrder: banner.displayOrder || 0,
+      bannerImages: banner.bannerImages?.map((img) => ({
+        id: Date.now().toString() + img.url,
+        file: null,
+        url: img.url,
+        type: img.type,
+      })) || [],
       ingredients: banner.ingredients || [],
+      imageFile: null,
+      mobileImageFile: null,
+      mobileImage: banner.mobileImage || '',
     });
+    setErrorMessage(null);
     setModalOpen(true);
   };
 
@@ -131,7 +177,9 @@ const Banners: React.FC = () => {
     setPreviewModalOpen(true);
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
     const { name, value, type } = e.target;
     setFormData({
       ...formData,
@@ -139,28 +187,68 @@ const Banners: React.FC = () => {
     });
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, field: 'imageFile' | 'mobileImageFile') => {
+    const file = e.target.files?.[0] || null;
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        setErrorMessage('File size exceeds 5MB limit.');
+        return;
+      }
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        setErrorMessage('Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.');
+        return;
+      }
+    }
+    setErrorMessage(null);
+    setFormData({
+      ...formData,
+      [field]: file,
+      ...(field === 'imageFile' && file ? { image: URL.createObjectURL(file) } : {}),
+      ...(field === 'mobileImageFile' && file ? { mobileImage: URL.createObjectURL(file) } : {}),
+    });
+  };
+
+  const handleBannerImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        setErrorMessage('File size exceeds 5MB limit.');
+        return;
+      }
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        setErrorMessage('Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.');
+        return;
+      }
+      setNewBannerImageFile(file);
+    }
+  };
+
   const addBannerImage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newImageUrl.trim()) {
+    if (newBannerImageFile) {
       setFormData({
         ...formData,
         bannerImages: [
           ...formData.bannerImages,
           {
             id: Date.now().toString(),
-            url: newImageUrl,
-            type: newImageType,
+            file: newBannerImageFile,
+            url: URL.createObjectURL(newBannerImageFile),
+            type: newBannerImageType,
           },
         ],
       });
-      setNewImageUrl('');
+      setNewBannerImageFile(null);
+      (document.getElementById('newBannerImageFile') as HTMLInputElement).value = '';
     }
   };
 
   const removeBannerImage = (id: string) => {
     setFormData({
       ...formData,
-      bannerImages: formData.bannerImages.filter(img => img.id !== id),
+      bannerImages: formData.bannerImages.filter((img) => img.id !== id),
     });
   };
 
@@ -169,66 +257,114 @@ const Banners: React.FC = () => {
     if (newIngredientName.trim()) {
       setFormData({
         ...formData,
-        ingredients: [
-          ...formData.ingredients,
-          {
-            id: Date.now().toString(),
-            name: newIngredientName,
-          },
-        ],
+        ingredients: [...formData.ingredients, newIngredientName.trim()],
       });
       setNewIngredientName('');
     }
   };
 
-  const removeIngredient = (id: string) => {
+  const removeIngredient = (ingredient: string) => {
     setFormData({
       ...formData,
-      ingredients: formData.ingredients.filter(ing => ing.id !== id),
+      ingredients: formData.ingredients.filter((ing) => ing !== ingredient),
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const bannerData = {
-      ...formData,
-      isActive: formData.isActive,
-      startDate: new Date(formData.startDate).toISOString(),
-      endDate: new Date(formData.endDate).toISOString(),
-      bannerImages: formData.bannerImages,
-      ingredients: formData.ingredients,
-    };
-    
-    if (editingBanner) {
-      // Update existing banner
-      setBanners(banners.map(banner => 
-        banner.id === editingBanner.id ? { ...bannerData, id: banner.id } : banner
-      ));
-    } else {
-      // Add new banner
-      const newBanner: Banner = {
-        ...bannerData,
-        id: Date.now().toString(),
+    setErrorMessage(null);
+
+    const formDataToSend = new FormData();
+    formDataToSend.append('title', formData.title);
+    formDataToSend.append('description', formData.description);
+    formDataToSend.append('linkUrl', formData.linkUrl);
+    formDataToSend.append('isActive', String(formData.isActive));
+    formDataToSend.append('startDate', new Date(formData.startDate).toISOString());
+    formDataToSend.append('endDate', new Date(formData.endDate).toISOString());
+    formDataToSend.append('bannerType', formData.bannerType);
+    formDataToSend.append('page', formData.page || 'homepage');
+    formDataToSend.append('displayOrder', String(formData.displayOrder));
+    formDataToSend.append('ingredients', JSON.stringify(formData.ingredients));
+
+    if (formData.imageFile) {
+      formDataToSend.append('image', formData.imageFile);
+    }
+    if (formData.mobileImageFile) {
+      formDataToSend.append('mobileImage', formData.mobileImageFile);
+    }
+    formData.bannerImages.forEach((img, index) => {
+      if (img.file) {
+        formDataToSend.append('bannerImages', img.file);
+        formDataToSend.append('bannerImageTypes', img.type);
+      }
+    });
+
+    try {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('userToken')}`,
+          'Content-Type': 'multipart/form-data',
+        },
       };
-      setBanners([...banners, newBanner]);
+
+      if (editingBanner) {
+        const response = await axios.put(
+          `${API_URL}/banners/${editingBanner.id}`,
+          formDataToSend,
+          config
+        );
+        setBanners(
+          banners.map((banner) =>
+            banner.id === editingBanner.id ? response.data : banner
+          )
+        );
+      } else {
+        const response = await axios.post(`${API_URL}/banners`, formDataToSend, config);
+        setBanners([...banners, response.data]);
+      }
+      setModalOpen(false);
+    } catch (error: any) {
+      console.error('Error saving banner:', error);
+      setErrorMessage(error.response?.data?.message || 'Failed to save banner. Please try again.');
     }
-    
-    setModalOpen(false);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (bannerToDelete) {
-      setBanners(banners.filter(banner => banner.id !== bannerToDelete.id));
-      setDeleteModalOpen(false);
-      setBannerToDelete(null);
+      try {
+        await axios.delete(`${API_URL}/banners/${bannerToDelete.id}`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('userToken')}`,
+          },
+        });
+        setBanners(banners.filter((banner) => banner.id !== bannerToDelete.id));
+        setDeleteModalOpen(false);
+        setBannerToDelete(null);
+      } catch (error) {
+        console.error('Error deleting banner:', error);
+        setErrorMessage('Failed to delete banner. Please try again.');
+      }
     }
   };
 
-  const toggleBannerStatus = (banner: Banner) => {
-    setBanners(banners.map(b => 
-      b.id === banner.id ? { ...b, isActive: !b.isActive } : b
-    ));
+  const toggleBannerStatus = async (banner: Banner) => {
+    try {
+      const response = await axios.put(
+        `${API_URL}/banners/${banner.id}`,
+        { isActive: !banner.isActive },
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('userToken')}`,
+          },
+        }
+      );
+      setBanners(
+        banners.map((b) => (b.id === banner.id ? response.data : b))
+      );
+    } catch (error) {
+      console.error('Error toggling banner status:', error);
+      setErrorMessage('Failed to toggle banner status. Please try again.');
+    }
   };
 
   return (
@@ -237,7 +373,27 @@ const Banners: React.FC = () => {
         <h1 className="text-2xl font-bold text-gray-900">Banner Management</h1>
         <p className="text-gray-600">Manage promotional banners for your store</p>
       </div>
-      
+
+      {errorMessage && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+          <span className="block sm:inline">{errorMessage}</span>
+          <span
+            className="absolute top-0 bottom-0 right-0 px-4 py-3"
+            onClick={() => setErrorMessage(null)}
+          >
+            <svg
+              className="fill-current h-6 w-6 text-red-500"
+              role="button"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+            >
+              <title>Close</title>
+              <path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z" />
+            </svg>
+          </span>
+        </div>
+      )}
+
       <DataTable
         columns={columns}
         data={banners}
@@ -279,151 +435,168 @@ const Banners: React.FC = () => {
           </div>
         )}
       />
-      
-      {/* Add/Edit Banner Modal */}
+
       <Modal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         title={editingBanner ? 'Edit Banner' : 'Add New Banner'}
         size="xl"
         footer={
-          <div className="flex justify-end space-x-2">
+          <div className="flex justify-end space-x-3">
             <button
               onClick={() => setModalOpen(false)}
-              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200"
             >
               Cancel
             </button>
             <button
               onClick={handleSubmit}
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
             >
-              {editingBanner ? 'Update' : 'Add'}
+              {editingBanner ? 'Update Banner' : 'Create Banner'}
             </button>
           </div>
         }
       >
-        <form className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="title" className="block text-sm font-medium text-gray-700">
-                Banner Title
-              </label>
-              <input
-                type="text"
-                id="title"
-                name="title"
-                value={formData.title}
-                onChange={handleInputChange}
-                required
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-              />
-            </div>
-            
-            <div>
-              <label htmlFor="isActive" className="block text-sm font-medium text-gray-700">
-                Status
-              </label>
-              <select
-                id="isActive"
-                name="isActive"
-                value={formData.isActive ? 'true' : 'false'}
-                onChange={(e) => setFormData({...formData, isActive: e.target.value === 'true'})}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-              >
-                <option value="true">Active</option>
-                <option value="false">Inactive</option>
-              </select>
-            </div>
-          </div>
-          
-          <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-              Description
-            </label>
-            <textarea
-              id="description"
-              name="description"
-              rows={3}
-              value={formData.description}
-              onChange={handleInputChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-            />
-          </div>
-          
-          <div>
-            <label htmlFor="imageUrl" className="block text-sm font-medium text-gray-700">
-              Main Banner Image URL
-            </label>
-            <input
-              type="url"
-              id="imageUrl"
-              name="imageUrl"
-              value={formData.imageUrl}
-              onChange={handleInputChange}
-              required
-              placeholder="https://example.com/image.jpg"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-            />
-            {formData.imageUrl && (
-              <div className="mt-2">
-                <p className="text-sm text-gray-500">Preview:</p>
-                <div className="mt-1 relative h-32 bg-gray-100 rounded overflow-hidden">
-                  <img 
-                    src={formData.imageUrl} 
-                    alt="Banner preview" 
-                    className="absolute inset-0 w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://via.placeholder.com/300x150?text=Invalid+Image+URL';
-                    }}
-                  />
-                </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Basic Information Section */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Basic Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
+                  Banner Title <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="title"
+                  name="title"
+                  value={formData.title}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  placeholder="Enter banner title"
+                />
               </div>
-            )}
+              <div>
+                <label htmlFor="isActive" className="block text-sm font-medium text-gray-700 mb-1">
+                  Status
+                </label>
+                <select
+                  id="isActive"
+                  name="isActive"
+                  value={formData.isActive ? 'true' : 'false'}
+                  onChange={(e) => setFormData({ ...formData, isActive: e.target.value === 'true' })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                >
+                  <option value="true">Active</option>
+                  <option value="false">Inactive</option>
+                </select>
+              </div>
+              <div className="md:col-span-2">
+                <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+                  Description
+                </label>
+                <textarea
+                  id="description"
+                  name="description"
+                  rows={4}
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  placeholder="Describe your banner..."
+                />
+              </div>
+            </div>
           </div>
-          
-          <div>
-            <label htmlFor="linkUrl" className="block text-sm font-medium text-gray-700">
-              Link URL
-            </label>
-            <input
-              type="url"
-              id="linkUrl"
-              name="linkUrl"
-              value={formData.linkUrl}
-              onChange={handleInputChange}
-              placeholder="https://example.com/promo"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-            />
-          </div>
-          
-          {/* Additional Banner Images Section */}
-          <div className="border-t border-gray-200 pt-4">
-            <h3 className="text-lg font-medium text-gray-900 mb-3">Additional Banner Images</h3>
-            <div className="space-y-4">
+
+          {/* Images Section */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Images</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label htmlFor="imageFile" className="block text-sm font-medium text-gray-700 mb-1">
+                  Main Banner Image
+                </label>
+                <input
+                  type="file"
+                  id="imageFile"
+                  name="imageFile"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  onChange={(e) => handleFileChange(e, 'imageFile')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+                {formData.image && (
+                  <div className="mt-4">
+                    <p className="text-sm text-gray-500 mb-2">Preview:</p>
+                    <div className="relative h-40 rounded-lg overflow-hidden shadow-sm">
+                      <img
+                        src={formData.image.startsWith('blob:') ? formData.image : `${IMAGE_BASE_URL}${formData.image}`}
+                        alt="Banner preview"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.src = 'https://via.placeholder.com/300x150?text=Invalid+Image+URL';
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div>
+                <label htmlFor="mobileImageFile" className="block text-sm font-medium text-gray-700 mb-1">
+                  Mobile Banner Image (Optional)
+                </label>
+                <input
+                  type="file"
+                  id="mobileImageFile"
+                  name="mobileImageFile"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  onChange={(e) => handleFileChange(e, 'mobileImageFile')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+                {formData.mobileImage && (
+                  <div className="mt-4">
+                    <p className="text-sm text-gray-500 mb-2">Mobile Preview:</p>
+                    <div className="relative h-40 rounded-lg overflow-hidden shadow-sm">
+                      <img
+                        src={formData.mobileImage.startsWith('blob:') ? formData.mobileImage : `${IMAGE_BASE_URL}${formData.mobileImage}`}
+                        alt="Mobile banner preview"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.src = 'https://via.placeholder.com/300x150?text=Invalid+Image+URL';
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Additional Banner Images */}
+            <div className="mt-6">
+              <h4 className="text-md font-medium text-gray-800 mb-3">Additional Banner Images</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="col-span-2">
-                  <label htmlFor="newImageUrl" className="block text-sm font-medium text-gray-700">
-                    Image URL
+                <div className="md:col-span-2">
+                  <label htmlFor="newBannerImageFile" className="block text-sm font-medium text-gray-700 mb-1">
+                    Additional Image
                   </label>
                   <input
-                    type="url"
-                    id="newImageUrl"
-                    value={newImageUrl}
-                    onChange={(e) => setNewImageUrl(e.target.value)}
-                    placeholder="https://example.com/image.jpg"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                    type="file"
+                    id="newBannerImageFile"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    onChange={handleBannerImageFileChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                   />
                 </div>
                 <div>
-                  <label htmlFor="newImageType" className="block text-sm font-medium text-gray-700">
+                  <label htmlFor="newBannerImageType" className="block text-sm font-medium text-gray-700 mb-1">
                     Image Type
                   </label>
                   <select
-                    id="newImageType"
-                    value={newImageType}
-                    onChange={(e) => setNewImageType(e.target.value as 'home-slider' | 'inner-page')}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                    id="newBannerImageType"
+                    value={newBannerImageType}
+                    onChange={(e) => setNewBannerImageType(e.target.value as 'home-slider' | 'inner-page')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                   >
                     <option value="home-slider">Home Slider</option>
                     <option value="inner-page">Inner Page</option>
@@ -433,30 +606,29 @@ const Banners: React.FC = () => {
               <button
                 type="button"
                 onClick={addBannerImage}
-                className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                disabled={!newBannerImageFile}
+                className="mt-3 inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
-                <Plus className="h-3 w-3 mr-1" /> Add Image
+                <Plus className="h-4 w-4 mr-2" /> Add Image
               </button>
-              
+
               {formData.bannerImages.length > 0 && (
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium text-gray-700">Added Images:</h4>
-                  <ul className="space-y-2">
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Added Images:</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {formData.bannerImages.map((image) => (
-                      <li key={image.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                        <div className="flex items-center">
-                          <img 
-                            src={image.url} 
-                            alt={`Banner ${image.type}`} 
-                            className="h-10 w-16 object-cover rounded mr-3"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = 'https://via.placeholder.com/64x40?text=Invalid+URL';
-                            }}
-                          />
-                          <div>
-                            <span className="text-sm font-medium capitalize">{image.type.replace('-', ' ')}</span>
-                            <div className="text-xs text-gray-500 truncate max-w-xs">{image.url}</div>
-                          </div>
+                      <div key={image.id} className="flex items-center p-3 bg-gray-50 rounded-lg shadow-sm">
+                        <img
+                          src={image.url}
+                          alt={`Banner ${image.type}`}
+                          className="h-12 w-16 object-cover rounded mr-3"
+                          onError={(e) => {
+                            e.currentTarget.src = 'https://via.placeholder.com/64x40?text=Invalid+URL';
+                          }}
+                        />
+                        <div className="flex-1">
+                          <span className="text-sm font-medium capitalize">{image.type.replace('-', ' ')}</span>
+                          <div className="text-xs text-gray-500 truncate max-w-[200px]">{image.file?.name || image.url}</div>
                         </div>
                         <button
                           type="button"
@@ -464,103 +636,156 @@ const Banners: React.FC = () => {
                           className="text-red-500 hover:text-red-700"
                           title="Remove image"
                         >
-                          <Minus className="h-4 w-4" />
+                          <Minus className="h-5 w-5" />
                         </button>
-                      </li>
+                      </div>
                     ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          </div>
-          
-          {/* Ingredients Section */}
-          <div className="border-t border-gray-200 pt-4">
-            <h3 className="text-lg font-medium text-gray-900 mb-3">Ingredients</h3>
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-4">
-                <div>
-                  <label htmlFor="ingredientName" className="block text-sm font-medium text-gray-700">
-                    Ingredient Name
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      id="ingredientName"
-                      value={newIngredientName}
-                      onChange={(e) => setNewIngredientName(e.target.value)}
-                      placeholder="e.g., Flour"
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={addIngredient}
-                      className="mt-1 inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    >
-                      <Plus className="h-3 w-3" />
-                    </button>
                   </div>
                 </div>
-              </div>
-              
-              {formData.ingredients.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Added Ingredients:</h4>
-                  <ul className="divide-y divide-gray-200">
-                    {formData.ingredients.map((ingredient) => (
-                      <li key={ingredient.id} className="py-2 flex justify-between">
-                        <span className="font-medium">{ingredient.name}</span>
-                        <button
-                          type="button"
-                          onClick={() => removeIngredient(ingredient.id)}
-                          className="text-red-500 hover:text-red-700"
-                          title="Remove ingredient"
-                        >
-                          <Minus className="h-4 w-4" />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
               )}
             </div>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="startDate" className="block text-sm font-medium text-gray-700">
-                Start Date
-              </label>
-              <input
-                type="date"
-                id="startDate"
-                name="startDate"
-                value={formData.startDate}
-                onChange={handleInputChange}
-                required
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-              />
+
+          {/* Ingredients Section */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Ingredients</h3>
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label htmlFor="ingredientName" className="block text-sm font-medium text-gray-700 mb-1">
+                  Ingredient Name
+                </label>
+                <input
+                  type="text"
+                  id="ingredientName"
+                  value={newIngredientName}
+                  onChange={(e) => setNewIngredientName(e.target.value)}
+                  placeholder="e.g., Blueberry"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={addIngredient}
+                className="mt-7 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
             </div>
-            
-            <div>
-              <label htmlFor="endDate" className="block text-sm font-medium text-gray-700">
-                End Date
-              </label>
-              <input
-                type="date"
-                id="endDate"
-                name="endDate"
-                value={formData.endDate}
-                onChange={handleInputChange}
-                required
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-              />
+            {formData.ingredients.length > 0 && (
+              <div className="mt-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Added Ingredients:</h4>
+                <div className="space-y-2">
+                  {formData.ingredients.map((ingredient, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg shadow-sm">
+                      <span className="font-medium text-gray-800">{ingredient}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeIngredient(ingredient)}
+                        className="text-red-500 hover:text-red-700"
+                        title="Remove ingredient"
+                      >
+                        <Minus className="h-5 w-5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Settings Section */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Settings</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label htmlFor="linkUrl" className="block text-sm font-medium text-gray-700 mb-1">
+                  Link URL
+                </label>
+                <input
+                  type="url"
+                  id="linkUrl"
+                  name="linkUrl"
+                  value={formData.linkUrl}
+                  onChange={handleInputChange}
+                  placeholder="https://example.com/promo"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                />
+              </div>
+              <div>
+                <label htmlFor="bannerType" className="block text-sm font-medium text-gray-700 mb-1">
+                  Banner Type
+                </label>
+                <select
+                  id="bannerType"
+                  name="bannerType"
+                  value={formData.bannerType}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                >
+                  <option value="home_slider">Home Slider</option>
+                  <option value="inner_page">Inner Page</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="page" className="block text-sm font-medium text-gray-700 mb-1">
+                  Page
+                </label>
+                <input
+                  type="text"
+                  id="page"
+                  name="page"
+                  value={formData.page}
+                  onChange={handleInputChange}
+                  placeholder="e.g., homepage"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                />
+              </div>
+              <div>
+                <label htmlFor="displayOrder" className="block text-sm font-medium text-gray-700 mb-1">
+                  Display Order
+                </label>
+                <input
+                  type="number"
+                  id="displayOrder"
+                  name="displayOrder"
+                  value={formData.displayOrder}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                />
+              </div>
+              <div>
+                <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">
+                  Start Date <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  id="startDate"
+                  name="startDate"
+                  value={formData.startDate}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                />
+              </div>
+              <div>
+                <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">
+                  End Date <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  id="endDate"
+                  name="endDate"
+                  value={formData.endDate}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                />
+              </div>
             </div>
           </div>
         </form>
       </Modal>
-      
-      {/* Delete Confirmation Modal */}
+
       <Modal
         isOpen={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}
@@ -593,8 +818,7 @@ const Banners: React.FC = () => {
           </div>
         </div>
       </Modal>
-      
-      {/* Preview Modal */}
+
       <Modal
         isOpen={previewModalOpen}
         onClose={() => setPreviewModalOpen(false)}
@@ -604,19 +828,22 @@ const Banners: React.FC = () => {
         {previewBanner && (
           <div className="space-y-6">
             <div className="relative h-64 rounded-lg overflow-hidden">
-              <img 
-                src={previewBanner.imageUrl} 
-                alt={previewBanner.title} 
+              <img
+                src={`${IMAGE_BASE_URL}${previewBanner.image}`}
+                alt={previewBanner.title}
                 className="absolute inset-0 w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.src = 'https://via.placeholder.com/300x150?text=Invalid+Image+URL';
+                }}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex flex-col justify-end p-6">
                 <h3 className="text-2xl font-bold text-white">{previewBanner.title}</h3>
                 <p className="text-white/90 mt-1">{previewBanner.description}</p>
                 {previewBanner.linkUrl && (
                   <div className="mt-4">
-                    <a 
-                      href={previewBanner.linkUrl} 
-                      target="_blank" 
+                    <a
+                      href={previewBanner.linkUrl}
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                     >
@@ -626,8 +853,23 @@ const Banners: React.FC = () => {
                 )}
               </div>
             </div>
-            
-            {/* Additional Images Preview */}
+
+            {previewBanner.mobileImage && (
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 mb-3">Mobile Image</h3>
+                <div className="relative h-64 rounded-lg overflow-hidden">
+                  <img
+                    src={`${IMAGE_BASE_URL}${previewBanner.mobileImage}`}
+                    alt={`${previewBanner.title} mobile`}
+                    className="absolute inset-0 w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.src = 'https://via.placeholder.com/300x150?text=Invalid+Image+URL';
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
             {previewBanner.bannerImages && previewBanner.bannerImages.length > 0 && (
               <div>
                 <h3 className="text-lg font-medium text-gray-900 mb-3">Additional Images</h3>
@@ -635,9 +877,12 @@ const Banners: React.FC = () => {
                   {previewBanner.bannerImages.map((image, index) => (
                     <div key={index} className="relative group">
                       <img
-                        src={image.url}
+                        src={`${IMAGE_BASE_URL}${image.url}`}
                         alt={`Banner ${image.type}`}
                         className="h-32 w-full object-cover rounded"
+                        onError={(e) => {
+                          e.currentTarget.src = 'https://via.placeholder.com/128x128?text=Invalid+Image+URL';
+                        }}
                       />
                       <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                         <span className="text-white text-sm capitalize">{image.type.replace('-', ' ')}</span>
@@ -647,29 +892,30 @@ const Banners: React.FC = () => {
                 </div>
               </div>
             )}
-            
-            {/* Ingredients Preview */}
+
             {previewBanner.ingredients && previewBanner.ingredients.length > 0 && (
               <div>
                 <h3 className="text-lg font-medium text-gray-900 mb-3">Ingredients</h3>
                 <ul className="divide-y divide-gray-200">
                   {previewBanner.ingredients.map((ingredient, index) => (
                     <li key={index} className="py-2">
-                      <span className="font-medium">{ingredient.name}</span>
+                      <span className="font-medium">{ingredients}</span>
                     </li>
                   ))}
                 </ul>
               </div>
             )}
-            
+
             <div className="bg-gray-50 p-4 rounded-lg">
               <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">
                 <div>
                   <dt className="text-sm font-medium text-gray-500">Status</dt>
                   <dd className="mt-1 text-sm text-gray-900">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      previewBanner.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                    }`}>
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        previewBanner.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                      }`}
+                    >
                       {previewBanner.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </dd>
@@ -678,9 +924,9 @@ const Banners: React.FC = () => {
                   <dt className="text-sm font-medium text-gray-500">Link URL</dt>
                   <dd className="mt-1 text-sm text-gray-900">
                     {previewBanner.linkUrl ? (
-                      <a 
-                        href={previewBanner.linkUrl} 
-                        target="_blank" 
+                      <a
+                        href={previewBanner.linkUrl}
+                        target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-600 hover:text-blue-800 break-all"
                       >
@@ -702,6 +948,20 @@ const Banners: React.FC = () => {
                   <dd className="mt-1 text-sm text-gray-900">
                     {new Date(previewBanner.endDate).toLocaleDateString()}
                   </dd>
+                </div>
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">Banner Type</dt>
+                  <dd className="mt-1 text-sm text-gray-900 capitalize">
+                    {previewBanner.bannerType.replace('_', ' ')}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">Page</dt>
+                  <dd className="mt-1 text-sm text-gray-900">{previewBanner.page || 'N/A'}</dd>
+                </div>
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">Display Order</dt>
+                  <dd className="mt-1 text-sm text-gray-900">{previewBanner.displayOrder}</dd>
                 </div>
               </dl>
             </div>

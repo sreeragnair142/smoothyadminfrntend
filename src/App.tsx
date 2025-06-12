@@ -10,6 +10,7 @@ import Ingredients from './pages/Ingredients';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/login';
 import Register from './pages/register';
+import Products from './pages/product';
 
 // Loading component
 const LoadingSpinner: React.FC = () => (
@@ -72,6 +73,9 @@ const AppRoutes: React.FC = () => {
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="users" element={<Users />} />
         <Route path="categories" element={<Categories />} />
+        <Route path="products" element={<Products/>} />
+
+        
         <Route path="banners" element={<Banners />} />
         <Route path="blogs" element={<Blogs />} />
         <Route path="ingredients" element={<Ingredients />} />
