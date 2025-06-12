@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Edit, Trash2, Eye, EyeOff, Calendar, Plus, Minus } from 'lucide-react';
+import { Edit, Trash2, Eye, EyeOff, Calendar, Plus, Minus, ChevronLeft, ChevronRight } from 'lucide-react';
 import axios from 'axios';
 import DataTable from '../components/ui/DataTable';
 import Modal from '../components/ui/Modal';
@@ -26,10 +26,12 @@ const Banners: React.FC = () => {
     page: 'homepage',
     displayOrder: 0,
     bannerImages: [] as { id: string; file: File | null; url: string; type: 'home-slider' | 'inner-page' }[],
-    ingredients: [] as string[],
+    ingredients: [] as { id: string; name: string; type: 'primary' | 'secondary' }[],
     imageFile: null as File | null,
     mobileImageFile: null as File | null,
     mobileImage: '',
+    fruitImageFile: null as File | null,
+    fruitImage: '',
   });
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [bannerToDelete, setBannerToDelete] = useState<Banner | null>(null);
@@ -37,8 +39,10 @@ const Banners: React.FC = () => {
   const [previewBanner, setPreviewBanner] = useState<Banner | null>(null);
   const [newBannerImageFile, setNewBannerImageFile] = useState<File | null>(null);
   const [newBannerImageType, setNewBannerImageType] = useState<'home-slider' | 'inner-page'>('home-slider');
-  const [newIngredientName, setNewIngredientName] = useState('');
+  const [newIngredient, setNewIngredient] = useState({ name: '', type: 'primary' as 'primary' | 'secondary' });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [activeIngredientTab, setActiveIngredientTab] = useState<'primary' | 'secondary'>('primary');
+  const [currentIngredientIndex, setCurrentIngredientIndex] = useState(0);
 
   useEffect(() => {
     fetchBanners();
@@ -89,9 +93,7 @@ const Banners: React.FC = () => {
       header: 'Status',
       accessor: (banner: Banner) => (
         <span
-          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-            banner.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-          }`}
+          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${banner.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}
         >
           {banner.isActive ? 'Active' : 'Inactive'}
         </span>
@@ -133,7 +135,10 @@ const Banners: React.FC = () => {
       imageFile: null,
       mobileImageFile: null,
       mobileImage: '',
+      fruitImageFile: null,
+      fruitImage: '',
     });
+    setNewIngredient({ name: '', type: 'primary' });
     setErrorMessage(null);
     setModalOpen(true);
   };
@@ -158,11 +163,18 @@ const Banners: React.FC = () => {
         url: img.url,
         type: img.type,
       })) || [],
-      ingredients: banner.ingredients || [],
+      ingredients: banner.ingredients?.map((ing, index) => ({
+        id: Date.now().toString() + index,
+        name: ing.name,
+        type: ing.type as 'primary' | 'secondary',
+      })) || [],
       imageFile: null,
       mobileImageFile: null,
       mobileImage: banner.mobileImage || '',
+      fruitImageFile: null,
+      fruitImage: banner.fruitImage || '',
     });
+    setNewIngredient({ name: '', type: 'primary' });
     setErrorMessage(null);
     setModalOpen(true);
   };
@@ -174,6 +186,8 @@ const Banners: React.FC = () => {
 
   const openPreviewModal = (banner: Banner) => {
     setPreviewBanner(banner);
+    setActiveIngredientTab('primary');
+    setCurrentIngredientIndex(0);
     setPreviewModalOpen(true);
   };
 
@@ -187,7 +201,10 @@ const Banners: React.FC = () => {
     });
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, field: 'imageFile' | 'mobileImageFile') => {
+  const handleFileChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    field: 'imageFile' | 'mobileImageFile' | 'fruitImageFile'
+  ) => {
     const file = e.target.files?.[0] || null;
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
@@ -206,6 +223,7 @@ const Banners: React.FC = () => {
       [field]: file,
       ...(field === 'imageFile' && file ? { image: URL.createObjectURL(file) } : {}),
       ...(field === 'mobileImageFile' && file ? { mobileImage: URL.createObjectURL(file) } : {}),
+      ...(field === 'fruitImageFile' && file ? { fruitImage: URL.createObjectURL(file) } : {}),
     });
   };
 
@@ -252,21 +270,41 @@ const Banners: React.FC = () => {
     });
   };
 
+  const handleIngredientChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+    field: 'name' | 'type'
+  ) => {
+    setNewIngredient({
+      ...newIngredient,
+      [field]: e.target.value,
+    });
+  };
+
   const addIngredient = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newIngredientName.trim()) {
+    if (newIngredient.name.trim()) {
       setFormData({
         ...formData,
-        ingredients: [...formData.ingredients, newIngredientName.trim()],
+        ingredients: [
+          ...formData.ingredients,
+          {
+            id: Date.now().toString(),
+            name: newIngredient.name.trim(),
+            type: newIngredient.type,
+          },
+        ],
       });
-      setNewIngredientName('');
+      setNewIngredient({ name: '', type: 'primary' });
+      (document.getElementById('ingredientName') as HTMLInputElement).value = '';
+    } else {
+      setErrorMessage('Ingredient name cannot be empty.');
     }
   };
 
-  const removeIngredient = (ingredient: string) => {
+  const removeIngredient = (id: string) => {
     setFormData({
       ...formData,
-      ingredients: formData.ingredients.filter((ing) => ing !== ingredient),
+      ingredients: formData.ingredients.filter((ing) => ing.id !== id),
     });
   };
 
@@ -284,13 +322,19 @@ const Banners: React.FC = () => {
     formDataToSend.append('bannerType', formData.bannerType);
     formDataToSend.append('page', formData.page || 'homepage');
     formDataToSend.append('displayOrder', String(formData.displayOrder));
-    formDataToSend.append('ingredients', JSON.stringify(formData.ingredients));
+    formDataToSend.append('ingredients', JSON.stringify(formData.ingredients.map(ing => ({
+      name: ing.name,
+      type: ing.type,
+    }))));
 
     if (formData.imageFile) {
       formDataToSend.append('image', formData.imageFile);
     }
     if (formData.mobileImageFile) {
       formDataToSend.append('mobileImage', formData.mobileImageFile);
+    }
+    if (formData.fruitImageFile) {
+      formDataToSend.append('fruitImage', formData.fruitImageFile);
     }
     formData.bannerImages.forEach((img, index) => {
       if (img.file) {
@@ -364,6 +408,28 @@ const Banners: React.FC = () => {
     } catch (error) {
       console.error('Error toggling banner status:', error);
       setErrorMessage('Failed to toggle banner status. Please try again.');
+    }
+  };
+
+  const handleNextIngredient = () => {
+    if (previewBanner && previewBanner.ingredients) {
+      const filteredIngredients = previewBanner.ingredients.filter(
+        (ingredient) => activeIngredientTab === 'all' || ingredient.type === activeIngredientTab
+      );
+      setCurrentIngredientIndex((prevIndex) =>
+        prevIndex < filteredIngredients.length - 1 ? prevIndex + 1 : 0
+      );
+    }
+  };
+
+  const handlePrevIngredient = () => {
+    if (previewBanner && previewBanner.ingredients) {
+      const filteredIngredients = previewBanner.ingredients.filter(
+        (ingredient) => activeIngredientTab === 'all' || ingredient.type === activeIngredientTab
+      );
+      setCurrentIngredientIndex((prevIndex) =>
+        prevIndex > 0 ? prevIndex - 1 : filteredIngredients.length - 1
+      );
     }
   };
 
@@ -570,6 +636,34 @@ const Banners: React.FC = () => {
                   </div>
                 )}
               </div>
+              <div>
+                <label htmlFor="fruitImageFile" className="block text-sm font-medium text-gray-700 mb-1">
+                  Fruit Image (Optional)
+                </label>
+                <input
+                  type="file"
+                  id="fruitImageFile"
+                  name="fruitImageFile"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={(e) => handleFileChange(e, 'fruitImageFile')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+                {formData.fruitImage && (
+                  <div className="mt-4">
+                    <p className="text-sm text-gray-500 mb-2">Fruit Image Preview:</p>
+                    <div className="relative h-40 rounded-lg overflow-hidden shadow-sm">
+                      <img
+                        src={formData.fruitImage.startsWith('blob:') ? formData.fruitImage : `${IMAGE_BASE_URL}${formData.fruitImage}`}
+                        alt="Fruit image preview"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.src = 'https://via.placeholder.com/300x150?text=Invalid+Image+URL';
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Additional Banner Images */}
@@ -649,38 +743,57 @@ const Banners: React.FC = () => {
           {/* Ingredients Section */}
           <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Ingredients</h3>
-            <div className="flex gap-3">
-              <div className="flex-1">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-2">
                 <label htmlFor="ingredientName" className="block text-sm font-medium text-gray-700 mb-1">
                   Ingredient Name
                 </label>
                 <input
                   type="text"
                   id="ingredientName"
-                  value={newIngredientName}
-                  onChange={(e) => setNewIngredientName(e.target.value)}
+                  value={newIngredient.name}
+                  onChange={(e) => handleIngredientChange(e, 'name')}
                   placeholder="e.g., Blueberry"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                 />
               </div>
-              <button
-                type="button"
-                onClick={addIngredient}
-                className="mt-7 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
+              <div>
+                <label htmlFor="ingredientType" className="block text-sm font-medium text-gray-700 mb-1">
+                  Ingredient Type
+                </label>
+                <select
+                  id="ingredientType"
+                  value={newIngredient.type}
+                  onChange={(e) => handleIngredientChange(e, 'type')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                >
+                  <option value="primary">Primary</option>
+                  <option value="secondary">Secondary</option>
+                </select>
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={addIngredient}
+              disabled={!newIngredient.name.trim()}
+              className="mt-3 inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              <Plus className="h-4 w-4 mr-2" /> Add Ingredient
+            </button>
+
             {formData.ingredients.length > 0 && (
               <div className="mt-4">
                 <h4 className="text-sm font-medium text-gray-700 mb-2">Added Ingredients:</h4>
-                <div className="space-y-2">
-                  {formData.ingredients.map((ingredient, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg shadow-sm">
-                      <span className="font-medium text-gray-800">{ingredient}</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {formData.ingredients.map((ingredient) => (
+                    <div key={ingredient.id} className="flex items-center p-3 bg-gray-50 rounded-lg shadow-sm">
+                      <div className="flex-1">
+                        <span className="text-sm font-medium capitalize">{ingredient.type}</span>
+                        <div className="text-xs text-gray-500 truncate max-w-[200px]">{ingredient.name}</div>
+                      </div>
                       <button
                         type="button"
-                        onClick={() => removeIngredient(ingredient)}
+                        onClick={() => removeIngredient(ingredient.id)}
                         className="text-red-500 hover:text-red-700"
                         title="Remove ingredient"
                       >
@@ -870,6 +983,22 @@ const Banners: React.FC = () => {
               </div>
             )}
 
+            {previewBanner.fruitImage && (
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 mb-3">Fruit Image</h3>
+                <div className="relative h-64 rounded-lg overflow-hidden">
+                  <img
+                    src={`${IMAGE_BASE_URL}${previewBanner.fruitImage}`}
+                    alt={`${previewBanner.title} fruit`}
+                    className="absolute inset-0 w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.src = 'https://via.placeholder.com/300x150?text=Invalid+Image+URL';
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
             {previewBanner.bannerImages && previewBanner.bannerImages.length > 0 && (
               <div>
                 <h3 className="text-lg font-medium text-gray-900 mb-3">Additional Images</h3>
@@ -896,13 +1025,77 @@ const Banners: React.FC = () => {
             {previewBanner.ingredients && previewBanner.ingredients.length > 0 && (
               <div>
                 <h3 className="text-lg font-medium text-gray-900 mb-3">Ingredients</h3>
-                <ul className="divide-y divide-gray-200">
-                  {previewBanner.ingredients.map((ingredient, index) => (
-                    <li key={index} className="py-2">
-                      <span className="font-medium">{ingredients}</span>
-                    </li>
-                  ))}
-                </ul>
+                <div className="flex border-b border-gray-200 mb-4">
+                  <button
+                    className={`px-4 py-2 text-sm font-medium ${activeIngredientTab === 'primary' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                    onClick={() => setActiveIngredientTab('primary')}
+                  >
+                    Primary Ingredients
+                  </button>
+                  <button
+                    className={`px-4 py-2 text-sm font-medium ${activeIngredientTab === 'secondary' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                    onClick={() => setActiveIngredientTab('secondary')}
+                  >
+                    Secondary Ingredients
+                  </button>
+                </div>
+                <div className="relative">
+                  <div className="flex items-center justify-between">
+                    <button
+                      onClick={handlePrevIngredient}
+                      className="p-2 bg-gray-200 rounded-full hover:bg-gray-300 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      disabled={previewBanner.ingredients.filter(
+                        (ingredient) => activeIngredientTab === 'all' || ingredient.type === activeIngredientTab
+                      ).length <= 1}
+                    >
+                      <ChevronLeft className="h-5 w-5 text-gray-600" />
+                    </button>
+                    <div className="flex-1 mx-4">
+                      {previewBanner.ingredients
+                        .filter((ingredient) => activeIngredientTab === 'all' || ingredient.type === activeIngredientTab)
+                        .map((ingredient, index) => (
+                          <div
+                            key={index}
+                            className={`transition-opacity duration-300 ${index === currentIngredientIndex ? 'opacity-100' : 'opacity-0 hidden'}`}
+                          >
+                            <div className="p-4 bg-gray-50 rounded-lg shadow-sm text-center">
+                              <span className="text-sm font-medium capitalize">{ingredient.type}</span>
+                              <div className="text-lg font-semibold text-gray-900 mt-1">{ingredient.name}</div>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                    <button
+                      onClick={handleNextIngredient}
+                      className="p-2 bg-gray-200 rounded-full hover:bg-gray-300 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      disabled={previewBanner.ingredients.filter(
+                        (ingredient) => activeIngredientTab === 'all' || ingredient.type === activeIngredientTab
+                      ).length <= 1}
+                    >
+                      <ChevronRight className="h-5 w-5 text-gray-600" />
+                    </button>
+                  </div>
+                  {previewBanner.ingredients.filter(
+                    (ingredient) => activeIngredientTab === 'all' || ingredient.type === activeIngredientTab
+                  ).length > 1 && (
+                    <div className="flex justify-center mt-4 space-x-2">
+                      {previewBanner.ingredients
+                        .filter((ingredient) => activeIngredientTab === 'all' || ingredient.type === activeIngredientTab)
+                        .map((_, index) => (
+                          <button
+                            key={index}
+                            className={`h-2 w-2 rounded-full ${index === currentIngredientIndex ? 'bg-blue-600' : 'bg-gray-300'}`}
+                            onClick={() => setCurrentIngredientIndex(index)}
+                          />
+                        ))}
+                    </div>
+                  )}
+                </div>
+                {previewBanner.ingredients.filter(
+                  (ingredient) => activeIngredientTab === 'all' || ingredient.type === activeIngredientTab
+                ).length === 0 && (
+                  <div className="text-sm text-gray-500 text-center">No {activeIngredientTab} ingredients available.</div>
+                )}
               </div>
             )}
 
@@ -912,9 +1105,7 @@ const Banners: React.FC = () => {
                   <dt className="text-sm font-medium text-gray-500">Status</dt>
                   <dd className="mt-1 text-sm text-gray-900">
                     <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        previewBanner.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                      }`}
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${previewBanner.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}
                     >
                       {previewBanner.isActive ? 'Active' : 'Inactive'}
                     </span>

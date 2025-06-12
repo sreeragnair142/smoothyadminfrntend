@@ -108,14 +108,18 @@ export interface Banner {
   description?: string;
   image: string;
   mobileImage?: string;
-  bannerImages: { url: string; type: 'home-slider' | 'inner-page' }[];
+  fruitImage?: string;
+  bannerImages?: {
+    url: string;
+    type: 'home-slider' | 'inner-page';
+    ingredients: string[];
+  }[];
   linkUrl?: string;
-  ingredients: string[];
   bannerType: 'home_slider' | 'inner_page';
   page?: string;
   displayOrder: number;
   isActive: boolean;
-  startDate: string | Date;
-  endDate: string | Date;
-  createdAt?: string | Date;
+  startDate: string;
+  endDate: string;
+  createdAt: string;
 }
