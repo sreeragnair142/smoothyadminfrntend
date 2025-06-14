@@ -16,6 +16,15 @@ import StatsCard from '../components/ui/StatsCard';
 // API Configuration
 const API_BASE_URL = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:5000/api';
 
+interface Update {
+  id: string;
+  type: 'product' | 'category' | 'banner';
+  action: 'created' | 'updated';
+  title: string;
+  timestamp: string;
+  details: string;
+}
+
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [productCount, setProductCount] = useState<number>(0);
@@ -24,6 +33,7 @@ const Dashboard: React.FC = () => {
   const [totalIngredients, setTotalIngredients] = useState<number>(0);
   const [lowStockProducts, setLowStockProducts] = useState<number>(0);
   const [totalStock, setTotalStock] = useState<number>(0);
+  const [recentUpdates, setRecentUpdates] = useState<Update[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -162,6 +172,88 @@ const Dashboard: React.FC = () => {
         const fetchedBanners = Array.isArray(bannersResponse.data) ? bannersResponse.data : [];
         const activeBanners = fetchedBanners.filter((banner: any) => banner.isActive === true);
         setActiveBannersCount(activeBanners.length);
+
+        // Aggregate recent updates
+        const updates: Update[] = [];
+
+        // Process products
+        fetchedProducts.forEach((product: any) => {
+          if (product.createdAt) {
+            updates.push({
+              id: product._id || product.id,
+              type: 'product',
+              action: 'created',
+              title: `New Product: "${product.name}"`,
+              timestamp: product.createdAt,
+              details: `Added to ${product.categoryName || 'Uncategorized'}`,
+            });
+          }
+          if (product.updatedAt && product.createdAt !== product.updatedAt) {
+            updates.push({
+              id: product._id || product.id,
+              type: 'product',
+              action: 'updated',
+              title: `Product "${product.name}" updated`,
+              timestamp: product.updatedAt,
+              details: `Updated in ${product.categoryName || 'Uncategorized'}`,
+            });
+          }
+        });
+
+        // Process categories
+        fetchedCategories.forEach((category: any) => {
+          if (category.createdAt) {
+            updates.push({
+              id: category._id || category.id,
+              type: 'category',
+              action: 'created',
+              title: `New Category: "${category.name}"`,
+              timestamp: category.createdAt,
+              details: `Added with ${category.smoothieCount || 0} smoothies`,
+            });
+          }
+          if (category.updatedAt && category.createdAt !== category.updatedAt) {
+            updates.push({
+              id: category._id || category.id,
+              type: 'category',
+              action: 'updated',
+              title: `Category "${category.name}" updated`,
+              timestamp: category.updatedAt,
+              details: `Contains ${category.smoothieCount || 0} smoothies`,
+            });
+          }
+        });
+
+        // Process banners
+        fetchedBanners.forEach((banner: any) => {
+          if (banner.createdAt) {
+            updates.push({
+              id: banner.id,
+              type: 'banner',
+              action: 'created',
+              title: `New Banner: "${banner.title}"`,
+              timestamp: banner.createdAt,
+              details: banner.isActive ? 'Active' : 'Inactive',
+            });
+          }
+          if (banner.updatedAt && banner.createdAt !== banner.updatedAt) {
+            updates.push({
+              id: banner.id,
+              type: 'banner',
+              action: 'updated',
+              title: `Banner "${banner.title}" updated`,
+              timestamp: banner.updatedAt,
+              details: banner.isActive ? 'Active' : 'Inactive',
+            });
+          }
+        });
+
+        // Sort updates by timestamp (most recent first) and take top 3
+        const sortedUpdates = updates
+          .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+          .slice(0, 3);
+        setRecentUpdates(sortedUpdates);
+
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to fetch counts.';
         setError(message);
@@ -171,6 +263,7 @@ const Dashboard: React.FC = () => {
         setTotalIngredients(0);
         setLowStockProducts(0);
         setTotalStock(0);
+        setRecentUpdates([]);
       } finally {
         setLoading(false);
       }
@@ -269,7 +362,7 @@ const Dashboard: React.FC = () => {
             <div className="flex justify-between items-center">
               <div>
                 <h4 className="font-medium">Low Stock Products</h4>
-                <p className="text-sm text-gray-500">Products needing restocking (stock &lt; {LOW_STOCK_THRESHOLD})</p>
+                {/* <p className="text-sm text-gray-500">Products needing restocking (stock < {LOW_STOCK_THRESHOLD})</p> */}
               </div>
               <div className="flex items-center">
                 <AlertCircle className="h-5 w-5 text-amber-500 mr-2" />
@@ -340,9 +433,15 @@ const Dashboard: React.FC = () => {
               <div className="bg-blue-50 p-4 rounded-lg">
                 <h4 className="font-medium text-blue-700">Recent Activities</h4>
                 <ul className="mt-2 space-y-2">
-                  <li className="text-sm text-blue-600">Banner "Summer Specials" updated</li>
-                  <li className="text-sm text-blue-600">2 new categories added</li>
-                  <li className="text-sm text-blue-600">New product "Berry Blast" added</li>
+                  {recentUpdates.length > 0 ? (
+                    recentUpdates.map((update) => (
+                      <li key={update.id + update.timestamp} className="text-sm text-blue-600">
+                        {update.title}
+                      </li>
+                    ))
+                  ) : (
+                    <li className="text-sm text-blue-600">No recent activities</li>
+                  )}
                 </ul>
               </div>
               
@@ -363,41 +462,33 @@ const Dashboard: React.FC = () => {
         <Card className="col-span-1 lg:col-span-2">
           <h3 className="text-lg font-semibold mb-4">Recent Updates</h3>
           <div className="space-y-4">
-            <div className="flex items-start p-4 rounded-lg bg-gray-50">
-              <div className="flex-shrink-0">
-                <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-500">
-                  <Tag className="h-5 w-5" />
+            {recentUpdates.length > 0 ? (
+              recentUpdates.map((update) => (
+                <div key={update.id + update.timestamp} className="flex items-start p-4 rounded-lg bg-gray-50">
+                  <div className="flex-shrink-0">
+                    <div className="h-10 w-10 rounded-full flex items-center justify-center text-white"
+                         style={{ backgroundColor: update.type === 'product' ? '#3B82F6' : update.type === 'category' ? '#8B5CF6' : '#10B981' }}>
+                      {update.type === 'product' && <ShoppingBag className="h-5 w-5" />}
+                      {update.type === 'category' && <Tag className="h-5 w-5" />}
+                      {update.type === 'banner' && <Image className="h-5 w-5" />}
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    <h4 className="text-sm font-medium text-gray-900">{update.title}</h4>
+                    <p className="mt-1 text-sm text-gray-500">
+                      {update.details} - {new Date(update.timestamp).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="flex items-start p-4 rounded-lg bg-gray-50">
+                <div className="ml-4">
+                  <h4 className="text-sm font-medium text-gray-900">No Recent Updates</h4>
+                  <p className="mt-1 text-sm text-gray-500">No recent activities to display.</p>
                 </div>
               </div>
-              <div className="ml-4">
-                <h4 className="text-sm font-medium text-gray-900">New Category: "Detox Smoothies"</h4>
-                <p className="mt-1 text-sm text-gray-500">Added 1 week ago with 5 smoothies</p>
-              </div>
-            </div>
-            
-            <div className="flex items-start p-4 rounded-lg bg-gray-50">
-              <div className="flex-shrink-0">
-                <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-500">
-                  <Image className="h-5 w-5" />
-                </div>
-              </div>
-              <div className="ml-4">
-                <h4 className="text-sm font-medium text-gray-900">Banner "Summer Specials" is now active</h4>
-                <p className="mt-1 text-sm text-gray-500">Will run from June 1 to August 31</p>
-              </div>
-            </div>
-            
-            <div className="flex items-start p-4 rounded-lg bg-gray-50">
-              <div className="flex-shrink-0">
-                <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center text-green-500">
-                  <ShoppingBag className="h-5 w-5" />
-                </div>
-              </div>
-              <div className="ml-4">
-                <h4 className="text-sm font-medium text-gray-900">New Product: "Berry Blast"</h4>
-                <p className="mt-1 text-sm text-gray-500">Added 3 days ago to Smoothies</p>
-              </div>
-            </div>
+            )}
           </div>
         </Card>
         
@@ -425,7 +516,6 @@ const Dashboard: React.FC = () => {
             >
               Manage Banners
             </button>
-          
           </div>
         </Card>
       </div>

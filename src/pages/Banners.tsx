@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Edit, Trash2, Eye, EyeOff, Calendar, Plus, Minus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Edit, Trash2, Eye, EyeOff, Plus, Minus, ChevronLeft, ChevronRight } from 'lucide-react';
 import axios from 'axios';
 import DataTable from '../components/ui/DataTable';
 import Modal from '../components/ui/Modal';
@@ -18,20 +18,10 @@ const Banners: React.FC = () => {
     title: '',
     description: '',
     image: '',
-    linkUrl: '',
     isActive: true,
-    startDate: '',
-    endDate: '',
-    bannerType: 'home_slider' as 'home_slider' | 'inner_page',
-    page: 'homepage',
-    displayOrder: 0,
     bannerImages: [] as { id: string; file: File | null; url: string; type: 'home-slider' | 'inner-page' }[],
     ingredients: [] as { id: string; name: string; type: 'primary' | 'secondary' }[],
     imageFile: null as File | null,
-    mobileImageFile: null as File | null,
-    mobileImage: '',
-    fruitImageFile: null as File | null,
-    fruitImage: '',
   });
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [bannerToDelete, setBannerToDelete] = useState<Banner | null>(null);
@@ -41,7 +31,7 @@ const Banners: React.FC = () => {
   const [newBannerImageType, setNewBannerImageType] = useState<'home-slider' | 'inner-page'>('home-slider');
   const [newIngredient, setNewIngredient] = useState({ name: '', type: 'primary' as 'primary' | 'secondary' });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [activeIngredientTab, setActiveIngredientTab] = useState<'primary' | 'secondary'>('primary');
+  const [activeIngredientTab, setActiveIngredientTab] = useState<'primary' | 'secondary' | 'all'>('all');
   const [currentIngredientIndex, setCurrentIngredientIndex] = useState(0);
 
   useEffect(() => {
@@ -99,44 +89,19 @@ const Banners: React.FC = () => {
         </span>
       ),
     },
-    {
-      header: 'Duration',
-      accessor: (banner: Banner) => (
-        <div className="text-sm">
-          <div className="flex items-center text-gray-500">
-            <Calendar className="h-4 w-4 mr-1" />
-            {new Date(banner.startDate).toLocaleDateString()} -{' '}
-            {new Date(banner.endDate).toLocaleDateString()}
-          </div>
-        </div>
-      ),
-    },
   ];
 
   const openAddModal = () => {
     setEditingBanner(null);
-    const today = new Date();
-    const nextMonth = new Date();
-    nextMonth.setMonth(today.getMonth() + 1);
     setFormData({
       id: '',
       title: '',
       description: '',
       image: '',
-      linkUrl: '',
       isActive: true,
-      startDate: today.toISOString().split('T')[0],
-      endDate: nextMonth.toISOString().split('T')[0],
-      bannerType: 'home_slider',
-      page: 'homepage',
-      displayOrder: 0,
       bannerImages: [],
       ingredients: [],
       imageFile: null,
-      mobileImageFile: null,
-      mobileImage: '',
-      fruitImageFile: null,
-      fruitImage: '',
     });
     setNewIngredient({ name: '', type: 'primary' });
     setErrorMessage(null);
@@ -150,29 +115,19 @@ const Banners: React.FC = () => {
       title: banner.title,
       description: banner.description || '',
       image: banner.image,
-      linkUrl: banner.linkUrl || '',
       isActive: banner.isActive,
-      startDate: new Date(banner.startDate).toISOString().split('T')[0],
-      endDate: new Date(banner.endDate).toISOString().split('T')[0],
-      bannerType: banner.bannerType || 'home_slider',
-      page: banner.page || 'homepage',
-      displayOrder: banner.displayOrder || 0,
       bannerImages: banner.bannerImages?.map((img) => ({
         id: Date.now().toString() + img.url,
         file: null,
         url: img.url,
         type: img.type,
       })) || [],
-      ingredients: banner.ingredients?.map((ing, index) => ({
-        id: Date.now().toString() + index,
+      ingredients: banner.ingredients?.map((ing, _) => ({
+        id: Date.now().toString() + _,
         name: ing.name,
         type: ing.type as 'primary' | 'secondary',
       })) || [],
       imageFile: null,
-      mobileImageFile: null,
-      mobileImage: banner.mobileImage || '',
-      fruitImageFile: null,
-      fruitImage: banner.fruitImage || '',
     });
     setNewIngredient({ name: '', type: 'primary' });
     setErrorMessage(null);
@@ -186,7 +141,7 @@ const Banners: React.FC = () => {
 
   const openPreviewModal = (banner: Banner) => {
     setPreviewBanner(banner);
-    setActiveIngredientTab('primary');
+    setActiveIngredientTab('all');
     setCurrentIngredientIndex(0);
     setPreviewModalOpen(true);
   };
@@ -203,7 +158,7 @@ const Banners: React.FC = () => {
 
   const handleFileChange = (
     e: React.ChangeEvent<HTMLInputElement>,
-    field: 'imageFile' | 'mobileImageFile' | 'fruitImageFile'
+    field: 'imageFile'
   ) => {
     const file = e.target.files?.[0] || null;
     if (file) {
@@ -222,8 +177,6 @@ const Banners: React.FC = () => {
       ...formData,
       [field]: file,
       ...(field === 'imageFile' && file ? { image: URL.createObjectURL(file) } : {}),
-      ...(field === 'mobileImageFile' && file ? { mobileImage: URL.createObjectURL(file) } : {}),
-      ...(field === 'fruitImageFile' && file ? { fruitImage: URL.createObjectURL(file) } : {}),
     });
   };
 
@@ -315,13 +268,7 @@ const Banners: React.FC = () => {
     const formDataToSend = new FormData();
     formDataToSend.append('title', formData.title);
     formDataToSend.append('description', formData.description);
-    formDataToSend.append('linkUrl', formData.linkUrl);
     formDataToSend.append('isActive', String(formData.isActive));
-    formDataToSend.append('startDate', new Date(formData.startDate).toISOString());
-    formDataToSend.append('endDate', new Date(formData.endDate).toISOString());
-    formDataToSend.append('bannerType', formData.bannerType);
-    formDataToSend.append('page', formData.page || 'homepage');
-    formDataToSend.append('displayOrder', String(formData.displayOrder));
     formDataToSend.append('ingredients', JSON.stringify(formData.ingredients.map(ing => ({
       name: ing.name,
       type: ing.type,
@@ -330,13 +277,7 @@ const Banners: React.FC = () => {
     if (formData.imageFile) {
       formDataToSend.append('image', formData.imageFile);
     }
-    if (formData.mobileImageFile) {
-      formDataToSend.append('mobileImage', formData.mobileImageFile);
-    }
-    if (formData.fruitImageFile) {
-      formDataToSend.append('fruitImage', formData.fruitImageFile);
-    }
-    formData.bannerImages.forEach((img, index) => {
+    formData.bannerImages.forEach((img, _) => {
       if (img.file) {
         formDataToSend.append('bannerImages', img.file);
         formDataToSend.append('bannerImageTypes', img.type);
@@ -608,62 +549,6 @@ const Banners: React.FC = () => {
                   </div>
                 )}
               </div>
-              <div>
-                <label htmlFor="mobileImageFile" className="block text-sm font-medium text-gray-700 mb-1">
-                  Mobile Banner Image (Optional)
-                </label>
-                <input
-                  type="file"
-                  id="mobileImageFile"
-                  name="mobileImageFile"
-                  accept="image/jpeg,image/png,image/gif,image/webp"
-                  onChange={(e) => handleFileChange(e, 'mobileImageFile')}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                />
-                {formData.mobileImage && (
-                  <div className="mt-4">
-                    <p className="text-sm text-gray-500 mb-2">Mobile Preview:</p>
-                    <div className="relative h-40 rounded-lg overflow-hidden shadow-sm">
-                      <img
-                        src={formData.mobileImage.startsWith('blob:') ? formData.mobileImage : `${IMAGE_BASE_URL}${formData.mobileImage}`}
-                        alt="Mobile banner preview"
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.src = 'https://via.placeholder.com/300x150?text=Invalid+Image+URL';
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div>
-                <label htmlFor="fruitImageFile" className="block text-sm font-medium text-gray-700 mb-1">
-                  Fruit Image (Optional)
-                </label>
-                <input
-                  type="file"
-                  id="fruitImageFile"
-                  name="fruitImageFile"
-                  accept="image/jpeg,image/png,image/webp,image/gif"
-                  onChange={(e) => handleFileChange(e, 'fruitImageFile')}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                />
-                {formData.fruitImage && (
-                  <div className="mt-4">
-                    <p className="text-sm text-gray-500 mb-2">Fruit Image Preview:</p>
-                    <div className="relative h-40 rounded-lg overflow-hidden shadow-sm">
-                      <img
-                        src={formData.fruitImage.startsWith('blob:') ? formData.fruitImage : `${IMAGE_BASE_URL}${formData.fruitImage}`}
-                        alt="Fruit image preview"
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.src = 'https://via.placeholder.com/300x150?text=Invalid+Image+URL';
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
 
             {/* Additional Banner Images */}
@@ -710,7 +595,7 @@ const Banners: React.FC = () => {
                 <div className="mt-4">
                   <h4 className="text-sm font-medium text-gray-700 mb-2">Added Images:</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {formData.bannerImages.map((image) => (
+                    {formData.bannerImages.map((image, _) => (
                       <div key={image.id} className="flex items-center p-3 bg-gray-50 rounded-lg shadow-sm">
                         <img
                           src={image.url}
@@ -785,7 +670,7 @@ const Banners: React.FC = () => {
               <div className="mt-4">
                 <h4 className="text-sm font-medium text-gray-700 mb-2">Added Ingredients:</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {formData.ingredients.map((ingredient) => (
+                  {formData.ingredients.map((ingredient, _) => (
                     <div key={ingredient.id} className="flex items-center p-3 bg-gray-50 rounded-lg shadow-sm">
                       <div className="flex-1">
                         <span className="text-sm font-medium capitalize">{ingredient.type}</span>
@@ -804,97 +689,6 @@ const Banners: React.FC = () => {
                 </div>
               </div>
             )}
-          </div>
-
-          {/* Settings Section */}
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Settings</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label htmlFor="linkUrl" className="block text-sm font-medium text-gray-700 mb-1">
-                  Link URL
-                </label>
-                <input
-                  type="url"
-                  id="linkUrl"
-                  name="linkUrl"
-                  value={formData.linkUrl}
-                  onChange={handleInputChange}
-                  placeholder="https://example.com/promo"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                />
-              </div>
-              <div>
-                <label htmlFor="bannerType" className="block text-sm font-medium text-gray-700 mb-1">
-                  Banner Type
-                </label>
-                <select
-                  id="bannerType"
-                  name="bannerType"
-                  value={formData.bannerType}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                >
-                  <option value="home_slider">Home Slider</option>
-                  <option value="inner_page">Inner Page</option>
-                </select>
-              </div>
-              <div>
-                <label htmlFor="page" className="block text-sm font-medium text-gray-700 mb-1">
-                  Page
-                </label>
-                <input
-                  type="text"
-                  id="page"
-                  name="page"
-                  value={formData.page}
-                  onChange={handleInputChange}
-                  placeholder="e.g., homepage"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                />
-              </div>
-              <div>
-                <label htmlFor="displayOrder" className="block text-sm font-medium text-gray-700 mb-1">
-                  Display Order
-                </label>
-                <input
-                  type="number"
-                  id="displayOrder"
-                  name="displayOrder"
-                  value={formData.displayOrder}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                />
-              </div>
-              <div>
-                <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">
-                  Start Date <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  id="startDate"
-                  name="startDate"
-                  value={formData.startDate}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                />
-              </div>
-              <div>
-                <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">
-                  End Date <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  id="endDate"
-                  name="endDate"
-                  value={formData.endDate}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                />
-              </div>
-            </div>
           </div>
         </form>
       </Modal>
@@ -952,59 +746,15 @@ const Banners: React.FC = () => {
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex flex-col justify-end p-6">
                 <h3 className="text-2xl font-bold text-white">{previewBanner.title}</h3>
                 <p className="text-white/90 mt-1">{previewBanner.description}</p>
-                {previewBanner.linkUrl && (
-                  <div className="mt-4">
-                    <a
-                      href={previewBanner.linkUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                    >
-                      Learn More
-                    </a>
-                  </div>
-                )}
               </div>
             </div>
-
-            {previewBanner.mobileImage && (
-              <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-3">Mobile Image</h3>
-                <div className="relative h-64 rounded-lg overflow-hidden">
-                  <img
-                    src={`${IMAGE_BASE_URL}${previewBanner.mobileImage}`}
-                    alt={`${previewBanner.title} mobile`}
-                    className="absolute inset-0 w-full h-full object-cover"
-                    onError={(e) => {
-                      e.currentTarget.src = 'https://via.placeholder.com/300x150?text=Invalid+Image+URL';
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {previewBanner.fruitImage && (
-              <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-3">Fruit Image</h3>
-                <div className="relative h-64 rounded-lg overflow-hidden">
-                  <img
-                    src={`${IMAGE_BASE_URL}${previewBanner.fruitImage}`}
-                    alt={`${previewBanner.title} fruit`}
-                    className="absolute inset-0 w-full h-full object-cover"
-                    onError={(e) => {
-                      e.currentTarget.src = 'https://via.placeholder.com/300x150?text=Invalid+Image+URL';
-                    }}
-                  />
-                </div>
-              </div>
-            )}
 
             {previewBanner.bannerImages && previewBanner.bannerImages.length > 0 && (
               <div>
                 <h3 className="text-lg font-medium text-gray-900 mb-3">Additional Images</h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {previewBanner.bannerImages.map((image, index) => (
-                    <div key={index} className="relative group">
+                  {previewBanner.bannerImages.map((image, _) => (
+                    <div key={image.url} className="relative group">
                       <img
                         src={`${IMAGE_BASE_URL}${image.url}`}
                         alt={`Banner ${image.type}`}
@@ -1026,6 +776,12 @@ const Banners: React.FC = () => {
               <div>
                 <h3 className="text-lg font-medium text-gray-900 mb-3">Ingredients</h3>
                 <div className="flex border-b border-gray-200 mb-4">
+                  <button
+                    className={`px-4 py-2 text-sm font-medium ${activeIngredientTab === 'all' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                    onClick={() => setActiveIngredientTab('all')}
+                  >
+                    All Ingredients
+                  </button>
                   <button
                     className={`px-4 py-2 text-sm font-medium ${activeIngredientTab === 'primary' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
                     onClick={() => setActiveIngredientTab('primary')}
@@ -1053,10 +809,10 @@ const Banners: React.FC = () => {
                     <div className="flex-1 mx-4">
                       {previewBanner.ingredients
                         .filter((ingredient) => activeIngredientTab === 'all' || ingredient.type === activeIngredientTab)
-                        .map((ingredient, index) => (
+                        .map((ingredient, _) => (
                           <div
-                            key={index}
-                            className={`transition-opacity duration-300 ${index === currentIngredientIndex ? 'opacity-100' : 'opacity-0 hidden'}`}
+                            key={ingredient.name}
+                            className={`transition-opacity duration-300 ${_ === currentIngredientIndex ? 'opacity-100' : 'opacity-0 hidden'}`}
                           >
                             <div className="p-4 bg-gray-50 rounded-lg shadow-sm text-center">
                               <span className="text-sm font-medium capitalize">{ingredient.type}</span>
@@ -1094,7 +850,9 @@ const Banners: React.FC = () => {
                 {previewBanner.ingredients.filter(
                   (ingredient) => activeIngredientTab === 'all' || ingredient.type === activeIngredientTab
                 ).length === 0 && (
-                  <div className="text-sm text-gray-500 text-center">No {activeIngredientTab} ingredients available.</div>
+                  <div className="text-sm text-gray-500 text-center">
+                    No {activeIngredientTab === 'all' ? '' : activeIngredientTab} ingredients available.
+                  </div>
                 )}
               </div>
             )}
@@ -1110,49 +868,6 @@ const Banners: React.FC = () => {
                       {previewBanner.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Link URL</dt>
-                  <dd className="mt-1 text-sm text-gray-900">
-                    {previewBanner.linkUrl ? (
-                      <a
-                        href={previewBanner.linkUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800 break-all"
-                      >
-                        {previewBanner.linkUrl}
-                      </a>
-                    ) : (
-                      <span className="text-gray-400">No link set</span>
-                    )}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Start Date</dt>
-                  <dd className="mt-1 text-sm text-gray-900">
-                    {new Date(previewBanner.startDate).toLocaleDateString()}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">End Date</dt>
-                  <dd className="mt-1 text-sm text-gray-900">
-                    {new Date(previewBanner.endDate).toLocaleDateString()}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Banner Type</dt>
-                  <dd className="mt-1 text-sm text-gray-900 capitalize">
-                    {previewBanner.bannerType.replace('_', ' ')}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Page</dt>
-                  <dd className="mt-1 text-sm text-gray-900">{previewBanner.page || 'N/A'}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Display Order</dt>
-                  <dd className="mt-1 text-sm text-gray-900">{previewBanner.displayOrder}</dd>
                 </div>
               </dl>
             </div>

@@ -1,3 +1,4 @@
+
 export interface User {
   id: string;
   name: string;
@@ -9,10 +10,15 @@ export interface User {
 
 export interface Category {
   id: string;
+  _id?: string;
   name: string;
-  description: string;
-  smoothieCount: number;
-  createdAt: string;
+  description?: string;
+  image?: string;
+  isActive?: boolean;
+  smoothieCount?: number;
+  productPages?: ProductPage[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Product {
@@ -21,17 +27,6 @@ export interface Product {
   description: string;
   smoothieCount: number;
   createdAt: string;
-}
-
-export interface Banner {
-  id: string;
-  title: string;
-  description: string;
-  imageUrl: string;
-  linkUrl: string;
-  isActive: boolean;
-  startDate: string;
-  endDate: string;
 }
 
 export interface Blog {
@@ -73,53 +68,20 @@ export interface Banner {
   description?: string;
   image: string;
   mobileImage?: string;
+  fruitImage?: string;
   linkUrl?: string;
-  ingredients: { id: string; name: string }[];
   bannerType: 'home_slider' | 'inner_page';
   page?: string;
   displayOrder: number;
   isActive: boolean;
   startDate: string;
   endDate: string;
+  createdAt?: string;
   bannerImages?: { id: string; url: string; type: 'home-slider' | 'inner-page' }[];
+  ingredients?: { id: string; name: string; type: 'primary' | 'secondary' }[];
 }
 
 export interface ProductPage {
   name: string;
   url: string;
-}
-
-export interface Category {
-  id: string;
-  _id?: string;
-  name: string;
-  description?: string;
-  image?: string;
-  isActive?: boolean;
-  smoothieCount?: number;
-  productPages?: ProductPage[];
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-export interface Banner {
-  id: string;
-  title: string;
-  description?: string;
-  image: string;
-  mobileImage?: string;
-  fruitImage?: string;
-  bannerImages?: {
-    url: string;
-    type: 'home-slider' | 'inner-page';
-    ingredients: string[];
-  }[];
-  linkUrl?: string;
-  bannerType: 'home_slider' | 'inner_page';
-  page?: string;
-  displayOrder: number;
-  isActive: boolean;
-  startDate: string;
-  endDate: string;
-  createdAt: string;
 }
